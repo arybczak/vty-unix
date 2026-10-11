@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- | Terminfo-based terminal output implementation.
@@ -440,7 +441,15 @@ hardcodeColor side (r, g, b) =
     where
         writeChar = writeWord8 . fromIntegral . fromEnum
         writeStr = mconcat . map writeChar
-        writeColor = writeStr . show
+        writeColor n
+            | n >= 100 = digit hundreds `mappend` digit tens `mappend` digit ones
+            | n >= 10 = digit tens `mappend` digit ones
+            | otherwise = digit ones
+            where
+                -- Strict pairs let GHC unbox the digits.
+                !(hundreds, rest) = n `divMod` 100
+                !(tens, ones) = rest `divMod` 10
+                digit d = writeWord8 (48 + d)
         delimiter = writeChar ';'
         -- 38/48 are used to set whether we should write to the
         -- foreground/background. I really don't want to know why.
